@@ -1,0 +1,338 @@
+$wp-color: #2271b1;
+$wp-color-hover: #2987d3;
+$wp-color-active: #004c8b;
+$hr-color: rgba(72, 94, 144, .16);
+$border-radius: 3px;
+
+$bg-hover: rgba(0, 0, 0, .04);
+$bg-active: #e2e2e2;
+
+body.wp-admin.upload-php {
+	#wpbody {
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		height: calc(100vh - 42px);
+
+		.wpdir-wrapper {
+			height: 100%;
+		}
+
+		#wpbody-content {
+			flex: 1 1 auto;
+			float: none;
+			padding: 0;
+			overflow: auto;
+		}
+	}
+
+	#footer-thankyou {
+		display: none;
+	}
+}
+
+body.wp-admin:not(.upload-php) #wpbody {
+	> .wpdir-wrapper, > .wpdir-vr {
+		display: none;
+	}
+}
+
+.wpdir-wrapper {
+	width: 350px;
+	display: flex;
+	flex-direction: column;
+
+	.wpdir-toolbar {
+		height: auto;
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 15px;
+
+		> button {
+			margin-top: 11px;
+			margin-bottom: 11px;
+		}
+
+		> :not(:first-child) {
+			margin-left: 8px;
+		}
+
+		.wpdir-button-sync {
+			width: auto;
+			margin-left: auto;
+			font-size: 20px;
+
+			&:not(:hover):not(:active) {
+				background: transparent;
+				border-color: transparent;
+				color: #c3c4c7;
+			}
+
+			&:before {
+				position: relative;
+				top: -6px;
+			}
+		}
+	}
+
+	div.separator {
+		margin: 15px;
+		height: 1px;
+		background: $hr-color;
+	}
+
+	.wpdir-body {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+
+	@at-root .wpdir-items {
+		.button, input {
+			width: 100%;
+		}
+
+		.button {
+			border-color: transparent;
+
+			&:not(.is-selected) {
+				&:not(:hover):not(:active) {
+					background: transparent;
+				}
+			}
+		}
+
+		@at-root .wpdir-folder {
+			position: relative;
+			border-radius: $border-radius;
+			padding: 2px 0;
+			color: #8f8f8f;
+
+			&.ui-draggable-dragging {
+				background: $bg-active;
+				pointer-events: none;
+				z-index: 260000;
+			}
+
+			&.ui-droppable-hover {
+				&:not([data-droppable-inside]), &[data-droppable-inside="0"] {
+					background: $bg-hover;
+					box-shadow: 0 0 3px rgba(0, 0, 0, 0.3) inset;
+
+					.dashicons, .wpdir-folder-label {
+						background: transparent !important;
+					}
+				}
+			}
+
+			&.wpdir-static {
+				> .dashicons {
+					pointer-events: none;
+				}
+			}
+
+			.dashicons {
+				position: absolute;
+				top: 6px;
+				left: 10px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+
+				// this excludes icons over inputs
+				&:first-child:hover {
+					color: $wp-color;
+				}
+
+				// only icons for inputs
+				&:not(:first-child) {
+					pointer-events: none;
+				}
+			}
+
+			.wpdir-folder-label {
+				display: block;
+				margin: 0;
+				line-height: 2;
+				border-radius: $border-radius;
+
+				$padding-left: 40px;
+				$padding-right: 10px;
+
+				// span&
+				@at-root #{selector-unify(&, span)} {
+					padding: 2px $padding-right 2px $padding-left;
+					cursor: pointer;
+
+					&:hover {
+						background: $bg-hover;
+					}
+
+					// due to jquery draggable, this could actually not be applied
+					&:active {
+						background: $bg-active;
+					}
+				}
+
+				// input&
+				@at-root #{selector-unify(&, input)} {
+					padding: 0 $padding-right 0 $padding-left;
+					font-size: inherit;
+
+					&::placeholder {
+						opacity: .7;
+						color: #646970;
+					}
+
+					&:focus + i {
+						color: $wp-color;
+					}
+				}
+			}
+
+			&.is-editing {
+				> span.wpdir-folder-label {
+					display: none;
+				}
+
+				// hide this because of overflow issues
+				> input:focus {
+					box-shadow: none;
+				}
+			}
+
+			.wpdir-folder-actions {
+				display: flex;
+				padding-top: 5px;
+
+				> button {
+					display: block;
+					border: none;
+					padding: 4px 8px;
+					border-radius: $border-radius;
+					cursor: pointer;
+
+					& + button {
+						margin-left: 5px;
+					}
+				}
+
+				.wpdir-button-cancel {
+					background: #dddbdb;
+					color: #636363;
+
+					&:hover {
+						background: $bg-hover;
+					}
+				}
+
+				.wpdir-button-primary {
+					background: #2271b1;
+					color: #fff;
+
+					&:hover {
+						background: $wp-color-hover;
+					}
+
+					&:active {
+						background: $wp-color-active;
+					}
+				}
+			}
+
+			&.is-selected:not(.is-editing) {
+				> i, > span {
+					background: $bg-active;
+					color: $wp-color;
+				}
+			}
+
+			.wpdir-folder-children {
+				padding-left: 30px;
+
+				/* vertical tree line */
+				.wpdir-folder {
+					&:before {
+						content: '';
+						position: absolute;
+						top: 0;
+						left: -11px;
+						display: block;
+						width: 1px;
+						height: 100%;
+						background: #d6d6d6;
+					}
+
+					/* horizontal tree line */
+					&:after {
+						content: '';
+						position: absolute;
+						top: 16px;
+						left: -10px;
+						display: block;
+						width: 10px;
+						height: 1px;
+						background: #d6d6d6;
+					}
+
+					&:last-child {
+						padding-bottom: 0;
+
+						&:before {
+							height: 17px;
+						}
+					}
+				}
+			}
+		}
+
+		&.wpdir-tree {
+			flex: 1 1 0;
+			overflow: auto;
+
+			:not(.is-selected) > .wpdir-folder-label {
+				color: #333;
+			}
+		}
+	}
+}
+
+.wpdir-vr-wrapper {
+  .wpdir-vr {
+	position: relative;
+	margin-right: 20px;
+	width: 1px;
+	height: 100%;
+	background-color: $hr-color;
+  }
+}
+
+.wpdir-draghandle {
+  position: absolute;
+  background: $bg-active;
+  box-shadow: 0 0 24px 0 rgba(68, 102, 242, .05);
+  border-radius: $border-radius;
+  padding: 5px;
+  white-space: nowrap;
+  line-height: 1.2;
+  z-index: 26000;
+  pointer-events: none;
+}
+
+// Enable scrolling in the sidebar of the modal.
+.media-menu {
+  display: flex;
+  flex-direction: column;
+
+  .wpdir-body {
+	display: flex;
+	flex-direction: column;
+	flex: 1 0 auto;
+
+	input.wpdir-folder-label {
+	  margin: 0 5px;
+	  width: calc(100% - 10px);
+	}
+  }
+}
