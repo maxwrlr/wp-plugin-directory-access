@@ -1,12 +1,13 @@
 import {EventEmitter} from './EventEmitter';
+import {__} from "@wordpress/i18n";
 
-type DirectoryCallback = (this: DirectoryNode, directory: DirectoryNode) => void;
 type DirectoryEvents = {
-	select: DirectoryCallback;
-	open: DirectoryCallback;
-	rename: (this: DirectoryNode, name: string, directory: DirectoryNode) => void;
-	'drop-directory': (this: DirectoryNode, target: DirectoryNode, directory: DirectoryNode) => void;
-	'drop-item': (this: DirectoryNode, itemIds: number[], directory: DirectoryNode) => void;
+	select: () => void;
+	open: () => void;
+	rename: (name: string) => void;
+	remove: () => void;
+	'drop-directory': (target: DirectoryNode) => void;
+	'drop-item': (itemIds: number[]) => void;
 }
 
 // used for Drag'n'Drop
@@ -20,7 +21,7 @@ export interface IDirectory {
 	children?: IDirectory[];
 }
 
-export interface IDirectoryFeatures {
+export interface IDirectoryOptions {
 	openable?: boolean;
 	selectable?: boolean;
 	renameable?: boolean;
@@ -35,13 +36,13 @@ export class DirectoryNode extends EventEmitter<DirectoryEvents> {
 	readonly containerEl: JQuery;
 	children: DirectoryNode[] = [];
 
-	private _features: IDirectoryFeatures;
+	private _features: IDirectoryOptions;
 	private _open = false;
 
 	private _filter = '';
 	private _filteredChildren = <DirectoryNode[]>[];
 
-	constructor(directory: IDirectory, features: IDirectoryFeatures = {}) {
+	constructor(directory: IDirectory, features: IDirectoryOptions = {}) {
 		super();
 
 		this.raw = directory;
@@ -62,7 +63,7 @@ export class DirectoryNode extends EventEmitter<DirectoryEvents> {
 		this._attachListeners(features);
 	}
 
-	_attachListeners(features: IDirectoryFeatures) {
+	_attachListeners(features: IDirectoryOptions) {
 		const c = this.el.children();
 
 		if (features.openable !== false) {
@@ -135,7 +136,7 @@ export class DirectoryNode extends EventEmitter<DirectoryEvents> {
 		}
 	}
 
-	static forAll(tree: DirectoryNode | DirectoryNode[], callback: DirectoryCallback) {
+	static forAll(tree: DirectoryNode | DirectoryNode[], callback: (d: DirectoryNode) => void) {
 		if (!Array.isArray(tree)) {
 			callback.call(tree, tree);
 			tree = tree.children;
@@ -174,13 +175,14 @@ export class DirectoryNode extends EventEmitter<DirectoryEvents> {
 				return;
 			}
 
-			input = jQuery(`<input class="wpdir-folder-label" type="text" placeholder="Ordnername eingeben...">`);
+			input = jQuery(`<input class="wpdir-folder-label" type="text">`);
+			input.attr('placeholder', __('Enter name', 'directory-access') + '…');
 
 			input.on('blur', () => this.setEditMode(false, true));
 			input.on('keydown', event => {
-				if (event.which === 13) {
+				if (event.key === 'Enter') {
 					this.setEditMode(false, true);
-				} else if (event.which === 27) {
+				} else if (event.key.startsWith('Esc')) {
 					this.setEditMode(false);
 				}
 			});
@@ -194,6 +196,8 @@ export class DirectoryNode extends EventEmitter<DirectoryEvents> {
 				const value = input.val() as string;
 				this.setName(value);
 				this.trigger('rename', value);
+			} else if (this.raw.id == null) {
+				this.trigger('remove');
 			}
 
 			this.el.children('input, .wpdir-folder-actions').remove();

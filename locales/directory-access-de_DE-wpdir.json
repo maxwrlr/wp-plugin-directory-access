@@ -1,0 +1,38 @@
+{
+	"locale_data": {
+		"messages": {
+			"": {},
+			"%s media item": [
+				"%s Mediendatei",
+				"%s Mediendateien"
+			],
+			"All Media Items": [
+				"Alle Medien"
+			],
+			"Delete": [
+				"Löschen"
+			],
+			"Directories": [
+				"Ordner"
+			],
+			"Filter Directories": [
+				"Ordner suchen"
+			],
+			"New Directory": [
+				"Neuer Ordner"
+			],
+			"Really delete \"%s\"?": [
+				"Soll der Ordner \"%s\" wirklich gelöscht werden?"
+			],
+			"Rename": [
+				"Umbenennen"
+			],
+			"Enter name": [
+				"Ordnername eingeben"
+			],
+			"Unassigned": [
+				"Unkategorisiert"
+			]
+		}
+	}
+}

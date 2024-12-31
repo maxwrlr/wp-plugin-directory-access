@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Directory Access
  * Description: Access and modify the directory structure inside /wp-content/uploads/.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: maxwrlr
  */
 

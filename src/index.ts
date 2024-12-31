@@ -1,5 +1,6 @@
 import './style.scss';
 import {DirectoryTree} from './DirectoryTree';
+import {_n, sprintf} from "@wordpress/i18n";
 
 declare const wp;
 
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			cursor: 'grabbing',
 			helper(event) {
 				const ids = helperCallback(event);
-				const title = `${ids.length} Mediendateien`;
+				const title = sprintf(_n('%s media item', '%s media items', ids.length, 'directory-access'), ids.length);
 				const helper = jQuery(`<div class="wpdir-draghandle"></div>`).text(title);
 				return helper.data('ids', ids);
 			}
@@ -38,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				collection = this.collection;
 				collection.props.set({wpdir: ''});
 				tree.on('select', f => this.collection.props.set({wpdir: f.raw.id}));
+				tree.on('removed', ids => ids.forEach(id => this.collection.remove(id)));
+				tree.on('reload', () => this.collection._requery());
 			},
 
 			createToolbar() {
@@ -82,6 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		tree.mount();
 		tree.on('select', directory => {
 			jQuery('#posts-filter').find('input[name="wpdir"]').val(directory.raw.id).end().submit();
+		});
+		tree.on('reload', () => {
+			jQuery('#posts-filter').find('input[name="wpdir"]').val(tree.getSelectedId()).end().submit();
 		});
 
 		const e = jQuery('.wp-admin.upload-php #wpbody-content .wp-list-table tbody tr:not(.no-items)');

@@ -21,8 +21,9 @@ function wpdir_enqueue_admin_scripts() {
 	wp_enqueue_script( 'jquery-ui-droppable' );
 	
 	$dist = plugin_dir_url( __DIR__ ) . 'dist/';
-	wp_enqueue_script( 'wpdir', $dist . 'index.js' );
 	wp_enqueue_style( 'wpdir', $dist . 'style-index.css' );
+	wp_enqueue_script( 'wpdir', $dist . 'index.js' );
+	wp_set_script_translations( 'wpdir', 'directory-access', plugin_dir_path( __DIR__ ) . 'locales/' );
 	
 	wp_localize_script( 'wpdir', 'fbv_data', array(
 		'folders' => wpdir_scandir( '', true )

@@ -1,23 +1,25 @@
-import {DirectoryNode, IDirectory, IDirectoryFeatures} from './DirectoryNode';
+import {DirectoryNode, IDirectory, IDirectoryOptions} from './DirectoryNode';
 import {EventEmitter} from './EventEmitter';
+import {executeWordPressRequest} from "./api";
+import {__, sprintf} from "@wordpress/i18n";
 
-type BrowserEvents = {
-	select: (directory: DirectoryNode, browser: DirectoryTree) => void;
+type TreeEvents = {
+	select: (directory: DirectoryNode) => void;
+	removed: (ids: number[]) => void;
+	reload: () => void;
 }
 
-declare const ajaxurl: string;
-
-const STATIC: IDirectoryFeatures = {
+const STATIC: IDirectoryOptions = {
 	openable: false,
 	renameable: false,
 	draggable: false
 };
 
-export class DirectoryTree extends EventEmitter<BrowserEvents> {
+export class DirectoryTree extends EventEmitter<TreeEvents> {
 	readonly el: JQuery;
 
-	private _all = new DirectoryNode({id: null, text: 'Alle Medien'}, {...STATIC, droppable: false});
-	private _root = new DirectoryNode({id: '/', text: 'Unkategorisiert'}, STATIC);
+	private _all = new DirectoryNode({id: null, text: __('All Media Items', 'directory-access')}, {...STATIC, droppable: false});
+	private _root = new DirectoryNode({id: '/', text: __('Unassigned', 'directory-access')}, STATIC);
 	private _selected = this._all;
 
 	constructor() {
@@ -26,18 +28,18 @@ export class DirectoryTree extends EventEmitter<BrowserEvents> {
 		this.el = jQuery(`
 <div class="wrap wpdir-wrapper">
 	<div>
-	<h1 class="wp-heading-inline">Ordner</h1>
-	<button class="page-title-action aria-button-if-js">Ordner erstellen</button>
+	<h1 class="wp-heading-inline"></h1>
+	<button class="page-title-action aria-button-if-js"></button>
 	</div>
 	<div class="wpdir-toolbar wp-filter">
-		<button class="wpdir-button-rename button media-button select-mode-toggle-button">Umbenennen</button>
-		<button class="wpdir-button-delete button media-button select-mode-toggle-button">Löschen</button>
+		<button class="wpdir-button-rename button media-button select-mode-toggle-button"></button>
+		<button class="wpdir-button-delete button media-button select-mode-toggle-button"></button>
 		<button class="wpdir-button-sync button media-button dashicons dashicons-update"></button>
 	</div>
 	<div class="wpdir-body">
 		<div class="wpdir-items">
 			<div class="wpdir-folder">
-				<input class="wpdir-folder-label" type="text" placeholder="Ordner suchen...">
+				<input class="wpdir-folder-label" type="text">
 				<i class="dashicons dashicons-search"></i>
 			</div>
 		</div>
@@ -46,12 +48,21 @@ export class DirectoryTree extends EventEmitter<BrowserEvents> {
 </div>
 `);
 
-		// Attach event listeners to toolbar buttons.
-		this.el.find('.page-title-action').on('click', () => this.mkdir(this._selected));
-		this.el.find('.wpdir-button-rename').on('click', () => this._selected.setEditMode(true));
-		this.el.find('.wpdir-button-delete').on('click', () => this.delete(this._selected));
-		this.el.find('.wpdir-button-sync').on('click', () => this.reload(true));
-		this.el.find('input').on('input', event => this.filter(event.target.value));
+		// Set translations and attach event listeners to toolbar buttons.
+		this.el.find('.wp-heading-inline').text(__('Directories', 'directory-access'));
+		this.el.find('.page-title-action')
+			.text(__('New Directory', 'directory-access'))
+			.on('click', () => this.mkdir(this._selected));
+		this.el.find('.wpdir-button-rename')
+			.text(__('Rename', 'directory-access'))
+			.on('click', () => this._selected.setEditMode(true));
+		this.el.find('.wpdir-button-delete')
+			.text(__('Delete', 'directory-access'))
+			.on('click', () => this.delete(this._selected));
+		this.el.find('.wpdir-button-sync').on('click', () => this.reload());
+		this.el.find('input')
+			.attr('placeholder', __('Filter directories', 'directory-access') + '…')
+			.on('input', event => this.filter(event.target.value));
 
 		// Append folders to DOM.
 		this._all.el.add(this._root.el)
@@ -71,70 +82,55 @@ export class DirectoryTree extends EventEmitter<BrowserEvents> {
 
 		directory.on('rename', name => {
 			const isNew = !directory.raw.id;
-			jQuery.ajax({
-				method: 'POST',
-				url: ajaxurl,
-				data: {
-					action: isNew ? 'wpdir_mkdir' : 'wpdir_rename',
-					[isNew ? 'parent' : 'id']: isNew ? this._root.findParentOf(directory).raw.id : directory.raw.id,
-					name
-				},
-				success: res => {
-					if (res.success) {
-						directory.setId(res.data);
-						if (!isNew) {
-							this._root.findParentOf(directory).sortChildren();
-						}
+			executeWordPressRequest({
+				action: isNew ? 'wpdir_mkdir' : 'wpdir_rename',
+				[isNew ? 'parent' : 'id']: isNew ? this._root.findParentOf(directory).raw.id : directory.raw.id,
+				name
+			}).then(res => {
+				if (res.success) {
+					directory.setId(res.data);
+					if (!isNew) {
+						this._root.findParentOf(directory).sortChildren();
 					}
 				}
 			});
 		});
 
+		directory.on('remove', () => {
+			this._root.findParentOf(directory).removeChild(directory);
+		})
+
 		directory.on('drop-directory', d => this.move(d, directory));
 
 		directory.on('drop-item', ids => {
-			jQuery.ajax({
-				method: 'POST',
-				url: ajaxurl,
-				data: {
-					action: 'wpdir_move_attachments',
-					parent: directory.raw.id,
-					ids
-				},
-				success: res => {
-					if (res.success) {
-						// TODO
-						ids.forEach(id => window['coll'].remove(id));
-					}
+			executeWordPressRequest({
+				action: 'wpdir_move_attachments',
+				parent: directory.raw.id,
+				ids
+			}).then(res => {
+				if (res.success) {
+					this.trigger('removed', ids);
 				}
 			});
 		});
 	}
 
 	/**
-	 * @param hard - Sync media with file system.
+	 * Sync media with file system.
 	 */
-	reload(hard = false) {
+	reload() {
 		const sync = this.el.find('button.wpdir-button-sync');
 		sync.prop('disabled', true);
 
-		jQuery.ajax({
-			method: 'POST',
-			url: ajaxurl,
-			data: {
-				action: 'wpdir_sync',
-				id: this._selected.raw.id
-			},
-			success: () => {
-				// TODO
-				if (window['coll']) {
-					window['coll']._requery();
-				} else {
-					jQuery('#posts-filter').find('input[name="wpdir"]').val(this._selected.raw.id).end().submit();
-				}
-			},
-			error: console.error,
-			complete: () => sync.prop('disabled', false)
+		executeWordPressRequest({
+			action: 'wpdir_sync',
+			id: this._selected.raw.id
+		}).then(() => {
+			this.trigger('reload');
+		}).catch(
+			console.error
+		).finally(() => {
+			sync.prop('disabled', false);
 		});
 	}
 
@@ -158,7 +154,7 @@ export class DirectoryTree extends EventEmitter<BrowserEvents> {
 			parent = this._root;
 		}
 
-		const directory = new DirectoryNode({id: null, text: 'Neuer Ordner'});
+		const directory = new DirectoryNode({id: null, text: __('New Directory', 'directory-access')}, STATIC);
 		parent.appendChild(directory);
 		directory.setEditMode(true);
 		directory.el.get(0).scrollIntoView();
@@ -178,44 +174,34 @@ export class DirectoryTree extends EventEmitter<BrowserEvents> {
 			return;
 		}
 
-		jQuery.ajax({
-			method: 'POST',
-			url: ajaxurl,
-			data: {
-				action: 'wpdir_move',
-				parent: newParent.raw.id,
-				id: directory.raw.id
-			},
-			success: res => {
-				if (res.success) {
-					directory.setId(res.data);
-					oldParent.removeChild(directory);
-					newParent.appendChild(directory);
-					newParent.setOpen(true);
-				}
+		executeWordPressRequest({
+			action: 'wpdir_move',
+			parent: newParent.raw.id,
+			id: directory.raw.id
+		}).then(res => {
+			if (res.success) {
+				directory.setId(res.data);
+				oldParent.removeChild(directory);
+				newParent.appendChild(directory);
+				newParent.setOpen(true);
 			}
 		});
 	}
 
 	delete(directory: DirectoryNode) {
-		if (confirm(`Soll der Ordner "${directory.raw.text}" wirklich gelöscht werden?`)) {
-			jQuery.ajax({
-				method: 'POST',
-				url: ajaxurl,
-				data: {
-					action: 'wpdir_delete',
-					id: directory.raw.id
-				},
-				success: res => {
-					if (!res.success) {
-						return;
-					}
+		if (confirm(sprintf(__('Really delete "%s"?', 'directory-access'), directory.raw.text))) {
+			executeWordPressRequest({
+				action: 'wpdir_delete',
+				id: directory.raw.id
+			}).then(res => {
+				if (!res.success) {
+					return;
+				}
 
-					const parent = this._root.findParentOf(directory);
-					if (parent) {
-						parent.removeChild(directory);
-						parent.setSelected(true);
-					}
+				const parent = this._root.findParentOf(directory);
+				if (parent) {
+					parent.removeChild(directory);
+					parent.setSelected(true);
 				}
 			});
 		}
